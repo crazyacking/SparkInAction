@@ -1,0 +1,84 @@
+package com.hut.demo.spark;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Properties;
+import java.util.TimeZone;
+
+public class DateList {
+    private static final TimeZone UTC = getTimeZone("UTC");
+
+    public DateList() {
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length < 5) {
+            System.out.println("Usage: java DateList <start_time>  <end_time> <frequency> <timeunit> <timezone>");
+            System.out.println("Example: java DateList 2009-02-01T01:00Z 2009-02-01T02:00Z 15 MINUTES UTC");
+            System.exit(1);
+        }
+
+        Date startTime = parseDateUTC(args[0]);
+        Date endTime = parseDateUTC(args[1]);
+        Repeatable rep = new Repeatable();
+        rep.setBaseline(startTime);
+        rep.setFrequency(Integer.parseInt(args[2]));
+        rep.setTimeZone(getTimeZone(args[4]));
+        Date date;
+        int occurrence = 0;
+        StringBuilder dateList = new StringBuilder();
+
+        do {
+            date = rep.getOccurrenceTime(startTime, occurrence++, null);
+            if (!date.before(endTime)) {
+                break;
+            }
+
+            if (occurrence > 1) {
+                String DATE_LIST_SEPARATOR = ",";
+                dateList.append(DATE_LIST_SEPARATOR);
+            }
+
+            dateList.append(formatDateUTC(date));
+        } while (date != null);
+
+        System.out.println("datelist :" + dateList + ":");
+        File file = new File(System.getProperty("oozie.action.output.properties"));
+        Properties props = new Properties();
+        props.setProperty("datelist", dateList.toString());
+        FileOutputStream os = new FileOutputStream(file);
+        props.store(os, "");
+        os.close();
+    }
+
+    private static DateFormat getISO8601DateFormat() {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm\'Z\'");
+        dateFormat.setTimeZone(UTC);
+        return dateFormat;
+    }
+
+    private static TimeZone getTimeZone(String tzId) {
+        TimeZone tz = TimeZone.getTimeZone(tzId);
+        if (!tz.getID().equals(tzId)) {
+            throw new IllegalArgumentException("Invalid TimeZone: " + tzId);
+        } else {
+            return tz;
+        }
+    }
+
+    private static Date parseDateUTC(String s) throws Exception {
+        return getISO8601DateFormat().parse(s);
+    }
+
+    private static String formatDateUTC(Date d) throws Exception {
+        return d != null ? getISO8601DateFormat().format(d) : "NULL";
+    }
+
+    private static String formatDateUTC(Calendar c) throws Exception {
+        return c != null ? formatDateUTC(c.getTime()) : "NULL";
+    }
+}
